@@ -1,0 +1,293 @@
+
+
+dedetag.class.php文件分析：
+
+## dede 静态模板类 模板解析过程分析
+
+解析模板的类文件
+
+include/dedetag.class.php
+
+这个文件是dedecms V5.3及之前版本使用的主要的模板类。
+
+一般模板解析分文以下两类：
+
+解析式模板：通过获得标签位置进行内容替换；
+
+并非编译式：直接解析式PHP代码，二次执行；
+
+而dedecms的属于是解析式模板；
+
+解析过程;
+
+在 dedetag.class.php 里面有四个类
+
+class DedeAttribute 属性结构表述
+
+class DedeAttributeParse 属性解析器
+
+class DedeTag 标签结构表述
+
+class DedeTagParse 标签解析器
+
+使用解析类解析模板时一般经过下面的步骤
+
+1、初始化：
+
+$dtp = new DedeTagParse();
+
+2、载入模板/模板字符串：
+
+$dtp->LoadTemplate(模板文件(绝对路径)); //会生成缓存，第二次不需解析模板
+
+或
+
+$dtp->LoadSource(字符串);
+
+3、给标签赋值
+
+foreach($dtp->CTags as $tid=>$ctag) {
+
+//判断ctag的名称和属性，并给赋不同的值，通常用函数处理
+
+if($ctag->GetName=='mytag') $dtp->Assign($tid, mytagvalue($ctag) );
+
+}
+
+在上面例子中，直接把名称为 mytag的标签转交给 mytagvalue 函数处理，mytagvalue 里判断$ctag的各个属性，返回不同内容即可。
+
+在 V5.3版本中，通常除了field、list等专用标签之外，凡arc.*开头的类解析的文件，标签都是对应该 include/taglib 的源码的，这个由系统进行了自动的映射。
+
+4、显示或保存为HTML
+
+$dtp->display();
+
+或
+
+$dtp->SaveTo(静态文件名);
+
+对于二次开发人员而言，不大需要知道dedecms模板具体解析方式，不过应该十分清楚CTag这个类的结构，从而判断标签不同属性进行处理。
+
+包含4个类：
+
+Dedetag - 标记的数据结构描述
+
+DedeTagParse - 模板解析类
+
+DedeAttribute - 属性描述操作类
+
+DedeAttributeParse - 属性解析类
+
+DedeAttribute
+
+var $Count = -1 // 属性解析后，属性个数。默认为－1
+
+var $Items = '' // 属性元素的集合
+
+GetAtt() // 获取某个属性
+
+GetAttribute() // 同上，版本兼容
+
+IsAttribute() // 是否设置某个属性()
+
+GetTagName() // 获取标签名称
+
+GetCount() // 获取属性个数
+
+DedeAttributeParse
+
+var $sourceString = '' // 待解析的标签源码(简单的处理过，多空白转空格等)
+
+var $sourceMaxSize = 1024 // 标签源码的最大长度(超过此长度不解析标签，也可手动调用下面的ParseAttribute()强制解析)
+
+var $cAttributes = '' // new DedeAttribute()
+
+var $charToLow = ture // 解析出来的属性名，是否转换为小写
+
+SetSource() // 初始化$this->sourceString和$this->cAttributes属性
+
+ParseAttribute() // 解析属性
+
+简述下属性解析的流程：
+
+1.标签的属性解析，是DedeAttribute和DedeAttributeParse2个类配合使用的。
+
+1>DedeAttributeParse里的$cAttributes属性，就是实例化的DedeAttribute对象，并且，解析后的属性数组，存储在DedeAttribute->Items；属性的个数，存储在DedeAttribute->Count。
+
+2>DedeAttribute类，是对外来操作解析后的属性对象的。
+
+2.解析属性的过程中，属性对象数组中，也会解析出 'tagname'，表示 '标签名'
+
+1>{dede:channel ...}，首先解析得到 tagname = 'channel' 属性，并且 $DedeAttribute->Count+1(这里就知道了：为什么$count默认为－1，因为会解析出tagname，此时count=0开始真正算起属性个数)
+
+2>{dede:field name=""}，自然会解析出 'name' 属性。
+
+这里也对 {dede:field.name}进行了支持，出现 '.'，会解析为 'name' 属性
+
+3>接着开始用 ' ' 作为属性间分隔符，分隔 '属性名＝属性值'
+
+4>使用 '=' 分隔，得到每个属性的属性名、属性值，赋值给 $DedeAttribute->Items 属性数组，同时 $DedeAttribute->Count+1
+
+----------------------------------------------
+
+DedeTag
+
+var $IsReplace=FALSE; //标签是否已被替代，供解析器使用
+
+var $TagName=""; //标签名称
+
+var $InnerText=""; //标签之间的文本
+
+var $StartPos=0; //标签起始位置
+
+var $EndPos=0; //标签结束位置
+
+var $CAttribute=""; //标签属性描述操作类,即是class DedeAttribute
+
+var $TagValue=""; //标签的值
+
+var $TagID = 0;
+
+GetName() // 获取标签名
+
+GetValue() // 获取标签值
+
+GetTagName() // 获取标签名(版本兼容)
+
+GetTagValue() // 获取标签值(版本兼容)
+
+IsAttribute() // DedeAttribute->IsAttribute()，是否设置某个属性
+
+GetAttribute() // DedeAttribute->GetAttribute()，获取某个属性
+
+GetAtt() // DedeAttribute->GetAttribute()，获取某个属性
+
+GetInnerText() // 获取标签之间的文本
+
+DedeTagParse
+
+var $NameSpace = 'dede'; //标签的名字空间
+
+var $TagStartWord = '{'; //标签起始
+
+var $TagEndWord = '}'; //标签结束
+
+var $TagMaxLen = 64; //标签名称的最大值
+
+var $CharToLow = TRUE; //TRUE表示对属性和标签名称不区分大小写
+
+var $IsCache = FALSE; //是否使用缓存
+
+var $TempMkTime = 0;
+
+var $CacheFile = '';
+
+var $SourceString = ''; //模板字符串
+
+var $CTags = ''; //标签集合
+
+var $Count = -1; //$Tags标签个数
+
+var $refObj = ''; //引用当前模板类的对象
+
+var $taghashfile = '';
+
+__construct() // 初始化一些标签解析的配置(以及根据配置项$cfg_tplcache是否启用缓存)
+
+SetNameSpace() // 设置标签的命名空间和开始&结束标记
+
+SetDefault() // 重置$SourceString、$CTags、$Count变量
+
+SetRefObj() // 强制引用，设置$refObj的值
+
+GetCount() // 获取$Count值，返回的是$count+1
+
+Clear() // 调用的就是SetDefault()，重置变量
+
+CheckDisabledFunctions() // 检查是否存在禁止的函数
+
+LoadCache() // 检测模版缓存，缓存存在，则读取缓存文件到$CTags数组中，否则返回false
+
+SaveCache() // 将$CTags数组，写入到缓存文件中，是一个$z命名的变量
+
+LoadTemplate() // 载入模板文件：1.先检测模板文件是否存在，不存在报错；2.将模板文件中的内容，读取到$SourceString变量；3.有了模板字符串，开始解析模板字符串，优先查看缓存，缓存过期或不存在，则重新解析模板(缓存中存储的是：模板字符串解析后的$z变量－可赋值给$CTags数组－所有解析出来的标签对象)
+
+LoadTemplet() // 同上，版本兼容
+
+LoadFile() // 同上，版本兼容
+
+LoadSource() // 载入模板字符串(将模版字符串，写入到一个模板字符串的缓存文件中，并解析模板字符串为$CTags)(这里是 "模板字符串的缓存文件"，同上面的 "解析后的模板字符串数组的缓存文件" 是不同的，存储在 /data/tplcache/32位字符.inc)
+
+LoadString() // 同上
+
+GetTagID() // 获取指定名称的Tag的ID(如果有多个同名的Tag,则取没有被取代为内容的第一个Tag)
+
+GetTag() // 获取指定名称的Tag解析对象(如果有多个同名的Tag,则取没有被取代为内容的第一个Tag)
+
+GetTagByName() // 同上
+
+GetTagByID() // 通过指定ID，来获取CTag解析对象($CTags[$id])
+
+AssignVar() // 给$_sys_globals数组添加一个元素
+
+Assign($i, $str, $runfunc = true) // 给指定的CTags对象，设置值，以及是否替换(IsReplace)。可根据第3个参数＋标签有function属性，调用函数，得到标签值。
+
+AssignName() // CTags所有标签列表中，给指定的标签名的标签，分配值
+
+AssignSysTag() // 处理特殊标签，例如：global,include,foreach,var等，以及这些所有标签里包含 'runphp' 属性的，都会调用RunPHP()方法来处理标签
+
+RunPHP() // 标签运行php代码
+
+GetResultNP() // 把模板里的标签全部替换完毕(没有输出到标签不进行替换，标签值为 "#@Delete@#"，替换为空'')，输出到一个字符串中，返回
+
+GetResult() // 把模板里的标签全部替换完毕，输出到一个字符串中，返回
+
+Display() // 直接输出得到的结果字符串
+
+SaveTo() // 将结果字符串保存到静态文件
+
+ParseTemplet() // 解析模板
+
+EvalFunc() // 处理某字段的函数
+
+GetGlobals() // 通过$GLOBALS获取外部的变量值，不可以是数据库密码等
+
+IncludeFile() // 引入模板文件，可通过第二个参数，选择是否直接编译模板文件解析的结果字符串
+
+-----------------
+
+这里的模板解析有点复杂，过程没法说，可看源码的分析，这里说几个点：
+
+LoadTemplate()－载入模板，步骤分析：
+
+1.读取模板文件，存储在 $this->SourceString
+
+2.先尝试调用缓存，LoadCache()
+
+1>文件的最后修改时间和生成缓存时的时间，比对
+
+2>缓存存在，引入缓存文件，存储的是$z数组，赋值给$this->CTags数组，解析标签数组
+
+3.缓存失败，则调用ParseTemplet()，解析模板文件，得到$this->CTags数组
+
+1>判断如果启用缓存，调用saveCache()，生成缓存，写入$z数组
+
+2>生成缓存，一个是缓存数组文件，一个是缓存时间文件(用于缓存过期比对)
+
+LoadSource()－加载模板字符串，这个也得说下：
+
+1.当解析的是一个模板字符串，并非文件时，会首先生成一个 '模板文件'，储存 '模板字符串'。然后再调用上面的LoadTemplate()机制，走相同的流程。
+
+2.这个机制，可借助我们的cache机制，同一个模板字符串生成的模板文件是相同的，会走缓存。这个模板文件生成在 'data/tplcache/xxx.inc'(文件名md5，32位长度。注意和 "缓存文件区分")
+
+生成最终的静态文件，还得替换了所有的标签：
+
+AssignVar()
+
+Assign()
+
+AssignName()
+
+AssignSysTag()
+
+标签的执行结果，得调用：include/taglib/*.lib.php中的函数。由include/channelunit.func.php中的MakeOneTag()这个函数执行
